@@ -18,11 +18,11 @@ const debug = require('debug')('lint-staged:run')
 module.exports = async function runAll(config) {
   debug('Running all linter scripts')
   // Config validation
-  if (!config || !has(config, 'concurrent') || !has(config, 'renderer')) {
+  if (!config || !has(config, 'renderer')) {
     throw new Error('Invalid config provided to runAll! Use getConfig instead.')
   }
 
-  const { concurrent, renderer, chunkSize, subTaskConcurrency } = config
+  const { renderer } = config
   const gitDir = await resolveGitDir(config)
 
   if (!gitDir) {
@@ -42,19 +42,13 @@ module.exports = async function runAll(config) {
   const tasks = (await generateTasks(config, gitDir, files)).map(task => ({
     title: `Running tasks for ${task.pattern}`,
     task: async () =>
-      new Listr(
-        await makeCmdTasks(task.commands, gitDir, task.fileList, {
-          chunkSize,
-          subTaskConcurrency
-        }),
-        {
-          // In sub-tasks we don't want to run concurrently
-          // and we want to abort on errors
-          dateFormat: false,
-          concurrent: false,
-          exitOnError: true
-        }
-      ),
+      new Listr(await makeCmdTasks(task.commands, gitDir, task.fileList), {
+        // In sub-tasks we don't want to run concurrently
+        // and we want to abort on errors
+        dateFormat: false,
+        concurrent: false,
+        exitOnError: true
+      }),
     skip: () => {
       if (task.fileList.length === 0) {
         return `No staged files match ${task.pattern}`
@@ -99,8 +93,7 @@ module.exports = async function runAll(config) {
         task: () =>
           new Listr(tasks, {
             ...listrBaseOptions,
-            concurrent,
-            exitOnError: !concurrent // Wait for all errors when running concurrently
+            exitOnError: false
           })
       },
       {
